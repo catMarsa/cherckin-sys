@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台</title>
+<style>
+  :root { --theme: #4F46E5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f4f5f7; color: #1f2937; padding: 16px; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 14px; box-shadow: 0 4px 18px rgba(0,0,0,.06); padding: 22px; margin-bottom: 16px; }
+  h2 { font-size: 18px; margin-bottom: 14px; color: var(--theme); }
+  label { display: block; font-size: 13px; color: #6b7280; margin: 10px 0 5px; }
+  input, textarea { width: 100%; padding: 11px 13px; border: 1px solid #e5e7eb; border-radius: 9px; font-size: 14px; outline: none; }
+  input:focus, textarea:focus { border-color: var(--theme); }
+  textarea { min-height: 90px; resize: vertical; font-family: monospace; }
+  button { padding: 11px 18px; border: none; border-radius: 9px; background: var(--theme); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; margin: 8px 8px 0 0; }
+  button.ghost { background: #f3f4f6; color: #374151; }
+  button.danger { background: #ef4444; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 150px; }
+  .msg { font-size: 13px; padding: 9px 12px; border-radius: 8px; margin-top: 10px; display: none; }
+  .msg.ok { background: #ecfdf5; color: #047857; display: block; }
+  .msg.err { background: #fef2f2; color: #b91c1c; display: block; }
+  .stat { display: flex; gap: 12px; margin-bottom: 10px; }
+  .stat .box { flex: 1; background: #f9fafb; border-radius: 10px; padding: 14px; text-align: center; }
+  .stat .num { font-size: 24px; font-weight: 700; color: var(--theme); }
+  .stat .lbl { font-size: 12px; color: #6b7280; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  th, td { border: 1px solid #eef0f3; padding: 8px; text-align: left; }
+  th { background: #f9fafb; color: #374151; }
+  .hidden { display: none !important; }
+  a.back { color: var(--theme); text-decoration: none; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- 登录 -->
+  <div id="loginCard" class="card">
+    <h2>管理后台登录</h2>
+    <label>管理员账号</label>
+    <input id="username" placeholder="管理员用户名">
+    <label>密码</label>
+    <input id="password" type="password" placeholder="密码">
+    <label>主题编码</label>
+    <input id="code" placeholder="活动主题编码">
+    <button onclick="login()">登录</button>
+    <div id="loginMsg" class="msg"></div>
+    <p style="margin-top:14px;font-size:12px;"><a class="back" href="index.html">← 返回签到页</a></p>
+  </div>
+
+  <!-- 主面板 -->
+  <div id="panel" class="card hidden">
+    <h2 id="panelTitle">主题数据</h2>
+    <div class="stat">
+      <div class="box"><div class="num" id="sAtt">0</div><div class="lbl">报名名单</div></div>
+      <div class="box"><div class="num" id="sChk">0</div><div class="lbl">已签到</div></div>
+    </div>
+    <button class="ghost" onclick="logout()">退出登录</button>
+    <button onclick="refresh()">刷新数据</button>
+
+    <h2 style="margin-top:20px;">导入名单</h2>
+    <p style="font-size:12px;color:#6b7280;">每行一条，格式：姓名,手机号,单位</p>
+    <textarea id="importText" placeholder="张三,13800138000,技术部&#10;李四,13900139000,市场部"></textarea>
+    <button onclick="importList()">导入名单</button>
+
+    <h2 style="margin-top:20px;">手动签到</h2>
+    <div class="row">
+      <div><label>手机号</label><input id="mPhone" placeholder="手机号"></div>
+      <div><label>姓名</label><input id="mName" placeholder="姓名"></div>
+      <div><label>单位</label><input id="mUnit" placeholder="单位"></div>
+    </div>
+    <button onclick="manualCheckin()">补录签到</button>
+
+    <h2 style="margin-top:20px;">数据查看与导出</h2>
+    <button onclick="exportCsv()">导出 CSV</button>
+    <button class="danger" onclick="resetData()">重置本主题数据</button>
+    <div id="tableBox"></div>
+    <div id="panelMsg" class="msg"></div>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+if (params.get('code')) document.getElementById('code').value = params.get('code');
+let TOKEN = '';
+let CODE = '';
+
+function pmsg(id, text, type) { const m = document.getElementById(id); m.textContent = text; m.className = 'msg ' + (type || ''); }
+
+async function login() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  CODE = document.getElementById('code').value.trim();
+  if (!username || !password || !CODE) { pmsg('loginMsg', '请填写账号、密码和主题编码', 'err'); return; }
+  try {
+    const r = await fetch('/api/admin/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, password, code: CODE }) });
+    const d = await r.json();
+    if (!d.success) { pmsg('loginMsg', d.message, 'err'); return; }
+    TOKEN = d.token;
+    document.getElementById('loginCard').classList.add('hidden');
+    document.getElementById('panel').classList.remove('hidden');
+    document.getElementById('panelTitle').textContent = '主题：' + d.theme.name;
+    refresh();
+  } catch (e) { pmsg('loginMsg', '网络错误', 'err'); }
+}
+
+function logout() {
+  TOKEN = '';
+  document.getElementById('panel').classList.add('hidden');
+  document.getElementById('loginCard').classList.remove('hidden');
+}
+
+async function refresh() {
+  try {
+    const r = await fetch('/api/admin/data', { method:'POST', headers:{'Content-Type':'application/json','x-token':TOKEN}, body: JSON.stringify({ token: TOKEN }) });
+    const d = await r.json();
+    if (!d.success) { pmsg('panelMsg', d.message, 'err'); return; }
+    const { attendees, checkins, signups } = d.data;
+    document.getElementById('sAtt').textContent = attendees.length;
+    document.getElementById('sChk').textContent = checkins.length;
+    let html = '<table><tr><th>姓名</th><th>电话</th><th>单位</th><th>来源</th><th>状态</th><th>签到时间</th></tr>';
+    const all = [];
+    attendees.forEach(a => { const ck = checkins.find(c=>c.phone===a.phone); all.push({ n:a.name, p:a.phone, u:a.unit, src:'名单', st: ck?'已签到':'未签到', t: ck?new Date(ck.checkinTime).toLocaleString():'' }); });
+    signups.forEach(s => { all.push({ n:s.name, p:s.phone, u:s.unit, src:'新报名', st: s.checkinTime?'已签到':'未签到', t: s.checkinTime?new Date(s.checkinTime).toLocaleString():'' }); });
+    all.forEach(x => { html += `<tr><td>${x.n}</td><td>${x.p}</td><td>${x.u}</td><td>${x.src}</td><td>${x.st}</td><td>${x.t}</td></tr>`; });
+    html += '</table>';
+    document.getElementById('tableBox').innerHTML = html;
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+
+async function importList() {
+  const lines = document.getElementById('importText').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  try {
+    const r = await fetch('/api/admin/import', { method:'POST', headers:{'Content-Type':'application/json','x-token':TOKEN}, body: JSON.stringify({ token: TOKEN, lines }) });
+    const d = await r.json();
+    if (d.success) pmsg('panelMsg', `导入完成：新增 ${d.added}，跳过 ${d.skipped}` + (d.errors.length? '；错误 '+d.errors.join('；'):''), 'ok');
+    else pmsg('panelMsg', d.message, 'err');
+    refresh();
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+
+async function manualCheckin() {
+  const phone = document.getElementById('mPhone').value.trim();
+  const name = document.getElementById('mName').value.trim();
+  const unit = document.getElementById('mUnit').value.trim();
+  if (!phone || !name) { pmsg('panelMsg', '请填写手机号和姓名', 'err'); return; }
+  try {
+    const r = await fetch('/api/admin/checkin', { method:'POST', headers:{'Content-Type':'application/json','x-token':TOKEN}, body: JSON.stringify({ token: TOKEN, phone, name, unit }) });
+    const d = await r.json();
+    pmsg('panelMsg', d.message, d.success?'ok':'err');
+    refresh();
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+
+async function exportCsv() {
+  try {
+    const r = await fetch('/api/admin/export', { method:'POST', headers:{'Content-Type':'application/json','x-token':TOKEN}, body: JSON.stringify({ token: TOKEN }) });
+    const d = await r.json();
+    if (!d.success) { pmsg('panelMsg', d.message, 'err'); return; }
+    const blob = new Blob([d.csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '签到数据_' + CODE + '.csv';
+    a.click();
+    pmsg('panelMsg', '已导出 ' + d.count + ' 条', 'ok');
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+
+async function resetData() {
+  if (!confirm('确定重置本主题所有数据？此操作不可恢复')) return;
+  try {
+    const r = await fetch('/api/admin/reset', { method:'POST', headers:{'Content-Type':'application/json','x-token':TOKEN}, body: JSON.stringify({ token: TOKEN }) });
+    const d = await r.json();
+    pmsg('panelMsg', d.message, d.success?'ok':'err');
+    refresh();
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+</script>
+</body>
+</html>
