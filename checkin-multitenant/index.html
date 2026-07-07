@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>活动签到</title>
+<style>
+  :root { --theme: #4F46E5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f4f5f7; color: #1f2937; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .card { background: #fff; width: 100%; max-width: 420px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.08); overflow: hidden; }
+  .head { background: var(--theme); color: #fff; padding: 28px 24px; text-align: center; }
+  .head h1 { font-size: 22px; font-weight: 700; }
+  .head p { opacity: .9; margin-top: 6px; font-size: 13px; }
+  .body { padding: 24px; }
+  label { display: block; font-size: 13px; color: #6b7280; margin: 14px 0 6px; }
+  input { width: 100%; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 15px; outline: none; transition: border .2s; }
+  input:focus { border-color: var(--theme); }
+  button { width: 100%; padding: 13px; border: none; border-radius: 10px; background: var(--theme); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 16px; transition: opacity .2s; }
+  button:active { opacity: .85; }
+  button.ghost { background: #f3f4f6; color: #374151; }
+  .msg { margin-top: 14px; font-size: 13px; padding: 10px 12px; border-radius: 8px; display: none; }
+  .msg.ok { background: #ecfdf5; color: #047857; display: block; }
+  .msg.err { background: #fef2f2; color: #b91c1c; display: block; }
+  .admin-link { text-align: center; margin-top: 18px; font-size: 12px; }
+  .admin-link a { color: var(--theme); text-decoration: none; }
+  .status { text-align: center; font-size: 14px; padding: 10px; border-radius: 8px; margin-bottom: 8px; }
+  .status.checked { background: #ecfdf5; color: #047857; }
+  .status.attendee { background: #eff6ff; color: #1d4ed8; }
+  .status.new { background: #fefce8; color: #a16207; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="head">
+      <h1 id="title">活动签到</h1>
+      <p id="subtitle">请输入信息完成签到</p>
+    </div>
+    <div class="body">
+      <div id="codeBox">
+        <label>主题编码</label>
+        <input id="codeInput" placeholder="请输入活动主题编码，如 会议2026">
+        <button onclick="loadTheme()">进入签到</button>
+      </div>
+
+      <div id="mainBox" class="hidden">
+        <div id="statusArea"></div>
+        <label>手机号</label>
+        <input id="phone" placeholder="请输入手机号" inputmode="numeric" maxlength="11">
+        <button onclick="lookup()">查询 / 签到</button>
+
+        <div id="detailBox" class="hidden">
+          <label>姓名</label>
+          <input id="name" placeholder="请输入姓名">
+          <label>单位</label>
+          <input id="unit" placeholder="请输入单位名称">
+          <button id="submitBtn" onclick="submit()">确认</button>
+        </div>
+
+        <div id="msg" class="msg"></div>
+
+        <div class="admin-link">
+          <a id="adminLink" href="#">管理后台入口</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const params = new URLSearchParams(location.search);
+let CODE = params.get('code') || '';
+let currentStatus = null;
+
+if (CODE) {
+  document.getElementById('codeInput').value = CODE;
+  loadTheme();
+}
+
+function setMsg(text, type) {
+  const m = document.getElementById('msg');
+  m.textContent = text;
+  m.className = 'msg ' + (type || '');
+}
+
+function applyTheme(color) {
+  if (color) document.documentElement.style.setProperty('--theme', color);
+}
+
+async function loadTheme() {
+  CODE = document.getElementById('codeInput').value.trim();
+  if (!CODE) { setMsg('请输入主题编码', 'err'); return; }
+  history.replaceState(null, '', '?code=' + encodeURIComponent(CODE));
+  try {
+    const r = await fetch('/api/theme?code=' + encodeURIComponent(CODE));
+    const d = await r.json();
+    if (!d.success) { setMsg(d.message, 'err'); return; }
+    document.getElementById('title').textContent = d.theme.name;
+    applyTheme(d.theme.color);
+    document.getElementById('adminLink').href = 'admin.html?code=' + encodeURIComponent(CODE);
+    document.getElementById('codeBox').classList.add('hidden');
+    document.getElementById('mainBox').classList.remove('hidden');
+    document.getElementById('statusArea').innerHTML = '';
+    document.getElementById('detailBox').classList.add('hidden');
+    document.getElementById('phone').value = '';
+  } catch (e) {
+    setMsg('网络错误', 'err');
+  }
+}
+
+async function lookup() {
+  const phone = document.getElementById('phone').value.trim();
+  if (!/^1\d{10}$/.test(phone)) { setMsg('请输入正确的手机号', 'err'); return; }
+  try {
+    const r = await fetch('/api/lookup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ code: CODE, phone }) });
+    const d = await r.json();
+    currentStatus = d.status;
+    const sa = document.getElementById('statusArea');
+    if (d.status === 'checked') {
+      sa.className = 'status checked';
+      sa.textContent = '✅ 您已于 ' + (d.user.checkinTime ? new Date(d.user.checkinTime).toLocaleString() : '') + ' 签到';
+      document.getElementById('detailBox').classList.add('hidden');
+    } else if (d.status === 'attendee') {
+      sa.className = 'status attendee';
+      sa.textContent = '👋 ' + (d.user.name || '') + '，您在报名名单中，请补全信息签到';
+      showDetail('signup', '签到');
+    } else {
+      sa.className = 'status new';
+      sa.textContent = '🆕 新参与者，请填写信息报名并签到';
+      showDetail('signup', '报名并签到');
+    }
+    setMsg('', '');
+  } catch (e) {
+    setMsg('网络错误', 'err');
+  }
+}
+
+function showDetail(mode, btnText) {
+  document.getElementById('detailBox').classList.remove('hidden');
+  document.getElementById('submitBtn').textContent = btnText;
+  document.getElementById('submitBtn').dataset.mode = mode;
+}
+
+async function submit() {
+  const phone = document.getElementById('phone').value.trim();
+  const name = document.getElementById('name').value.trim();
+  const unit = document.getElementById('unit').value.trim();
+  if (!name) { setMsg('请输入姓名', 'err'); return; }
+  if (!unit) { setMsg('请输入单位', 'err'); return; }
+  const mode = document.getElementById('submitBtn').dataset.mode || 'signup';
+  try {
+    const r = await fetch(mode === 'checkin' ? '/api/checkin' : '/api/signup', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ code: CODE, name, phone, unit })
+    });
+    const d = await r.json();
+    if (d.success) { setMsg('🎉 签到成功！', 'ok'); document.getElementById('statusArea').className='status checked'; document.getElementById('statusArea').textContent='✅ 签到成功'; document.getElementById('detailBox').classList.add('hidden'); }
+    else setMsg(d.message, 'err');
+  } catch (e) { setMsg('网络错误', 'err'); }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>系统控制台（开发者）</title>
+<style>
+  :root { --theme: #4F46E5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f4f5f7; color: #1f2937; padding: 16px; }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 14px; box-shadow: 0 4px 18px rgba(0,0,0,.06); padding: 22px; margin-bottom: 16px; }
+  h2 { font-size: 18px; margin-bottom: 14px; color: var(--theme); }
+  label { display: block; font-size: 13px; color: #6b7280; margin: 10px 0 5px; }
+  input { width: 100%; padding: 11px 13px; border: 1px solid #e5e7eb; border-radius: 9px; font-size: 14px; outline: none; }
+  input:focus { border-color: var(--theme); }
+  button { padding: 11px 18px; border: none; border-radius: 9px; background: var(--theme); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; margin: 8px 8px 0 0; }
+  button.ghost { background: #f3f4f6; color: #374151; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 160px; }
+  .msg { font-size: 13px; padding: 9px 12px; border-radius: 8px; margin-top: 10px; display: none; }
+  .msg.ok { background: #ecfdf5; color: #047857; display: block; }
+  .msg.err { background: #fef2f2; color: #b91c1c; display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  th, td { border: 1px solid #eef0f3; padding: 8px; text-align: left; }
+  th { background: #f9fafb; }
+  .hidden { display: none !important; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; background: #ede9fe; color: #5b21b6; }
+  .tabs button { background: #f3f4f6; color: #374151; }
+  .tabs button.active { background: var(--theme); color: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- 登录 / 初始化 -->
+  <div id="authCard" class="card">
+    <h2 id="authTitle">开发者控制台</h2>
+    <div id="setupBox">
+      <p style="font-size:13px;color:#6b7280;margin-bottom:8px;">首次使用，请创建超级管理员（开发者）账号：</p>
+      <label>管理员用户名</label>
+      <input id="suUser" placeholder="如 admin">
+      <label>密码（至少4位）</label>
+      <input id="suPass" type="password" placeholder="设置密码">
+      <button onclick="setup()">创建超级管理员</button>
+    </div>
+    <div id="loginBox" class="hidden">
+      <label>管理员用户名</label>
+      <input id="username" placeholder="用户名">
+      <label>密码</label>
+      <input id="password" type="password" placeholder="密码">
+      <button onclick="login()">登录</button>
+    </div>
+    <div id="authMsg" class="msg"></div>
+  </div>
+
+  <!-- 主控制台 -->
+  <div id="console" class="card hidden">
+    <div class="tabs">
+      <button class="active" onclick="switchTab('admins', this)">管理员</button>
+      <button onclick="switchTab('themes', this)">主题管理</button>
+      <button onclick="switchTab('alldata', this)">全部数据（总后台）</button>
+      <button class="ghost" onclick="logout()">退出</button>
+    </div>
+
+    <!-- 管理员 -->
+    <div id="tab-admins">
+      <h2 style="margin-top:18px;">管理员列表</h2>
+      <div id="adminList"></div>
+      <h2 style="margin-top:18px;">新增管理员</h2>
+      <div class="row">
+        <div><label>用户名</label><input id="naUser" placeholder="新管理员用户名"></div>
+        <div><label>密码</label><input id="naPass" type="password" placeholder="至少4位"></div>
+      </div>
+      <button onclick="createAdmin()">创建管理员</button>
+      <h2 style="margin-top:18px;">修改密码</h2>
+      <div class="row">
+        <div><label>目标用户名（留空改自己）</label><input id="cpUser" placeholder="默认当前账号"></div>
+        <div><label>新密码</label><input id="cpPass" type="password" placeholder="至少4位"></div>
+      </div>
+      <button onclick="changePwd()">更新密码</button>
+    </div>
+
+    <!-- 主题 -->
+    <div id="tab-themes" class="hidden">
+      <h2 style="margin-top:18px;">创建主题</h2>
+      <div class="row">
+        <div><label>主题编码（唯一，不可重复）</label><input id="tCode" placeholder="如 会议2026"></div>
+        <div><label>主题名称</label><input id="tName" placeholder="如 2026年度会议"></div>
+        <div><label>主题色（可选）</label><input id="tColor" value="#4F46E5" type="color"></div>
+      </div>
+      <button onclick="createTheme()">创建主题</button>
+      <p style="font-size:12px;color:#6b7280;margin-top:8px;">创建后，参与者访问 <code>?code=主题编码</code> 即可进入对应签到页。</p>
+      <h2 style="margin-top:18px;">主题列表</h2>
+      <div id="themeList"></div>
+    </div>
+
+    <!-- 全部数据 -->
+    <div id="tab-alldata" class="hidden">
+      <h2 style="margin-top:18px;">全部主题数据（开发者总后台）</h2>
+      <button onclick="loadAll()">加载全部数据</button>
+      <button class="ghost" onclick="exportAll()">导出全部 CSV</button>
+      <div id="allBox"></div>
+    </div>
+
+    <div id="consoleMsg" class="msg"></div>
+  </div>
+</div>
+
+<script>
+let TOKEN = '';
+function amsg(text, type) { const m = document.getElementById('consoleMsg'); m.textContent = text; m.className = 'msg ' + (type || ''); }
+
+(async function init() {
+  try {
+    const r = await fetch('/api/console/init');
+    const d = await r.json();
+    if (d.initialized) {
+      document.getElementById('setupBox').classList.add('hidden');
+      document.getElementById('loginBox').classList.remove('hidden');
+      document.getElementById('authTitle').textContent = '开发者控制台登录';
+    }
+  } catch (e) {}
+})();
+
+async function setup() {
+  const username = document.getElementById('suUser').value.trim();
+  const password = document.getElementById('suPass').value;
+  if (!username || password.length < 4) { amsg('请填写用户名和密码（至少4位）', 'err'); return; }
+  const r = await fetch('/api/console/setup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, password }) });
+  const d = await r.json();
+  if (!d.success) { amsg(d.message, 'err'); return; }
+  TOKEN = d.token; enterConsole();
+}
+
+async function login() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  if (!username || !password) { amsg('请填写用户名和密码', 'err'); return; }
+  const r = await fetch('/api/console/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, password }) });
+  const d = await r.json();
+  if (!d.success) { amsg(d.message, 'err'); return; }
+  TOKEN = d.token; enterConsole();
+}
+
+function enterConsole() {
+  document.getElementById('authCard').classList.add('hidden');
+  document.getElementById('console').classList.remove('hidden');
+  loadAdmins();
+}
+
+function logout() {
+  TOKEN = '';
+  location.reload();
+}
+
+function switchTab(name, btn) {
+  ['admins','themes','alldata'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
+  document.getElementById('tab-'+name).classList.remove('hidden');
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (name === 'admins') loadAdmins();
+  if (name === 'themes') loadThemes();
+}
+
+async function loadAdmins() {
+  const r = await fetch('/api/console/admins', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN }) });
+  const d = await r.json();
+  if (!d.success) return amsg(d.message, 'err');
+  let html = '<table><tr><th>用户名</th><th>角色</th></tr>';
+  d.admins.forEach(a => html += `<tr><td>${a.username}</td><td>${a.isSuper?'<span class="tag">超级管理员</span>':'普通管理员'}</td></tr>`);
+  html += '</table>';
+  document.getElementById('adminList').innerHTML = html;
+}
+
+async function createAdmin() {
+  const username = document.getElementById('naUser').value.trim();
+  const password = document.getElementById('naPass').value;
+  if (!username || password.length < 4) return amsg('请填写用户名和密码（至少4位）', 'err');
+  const r = await fetch('/api/console/admin/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, username, password }) });
+  const d = await r.json();
+  amsg(d.message, d.success?'ok':'err');
+  if (d.success) { document.getElementById('naUser').value=''; document.getElementById('naPass').value=''; loadAdmins(); }
+}
+
+async function changePwd() {
+  const username = document.getElementById('cpUser').value.trim();
+  const newPassword = document.getElementById('cpPass').value;
+  if (newPassword.length < 4) return amsg('新密码至少4位', 'err');
+  const r = await fetch('/api/console/admin/password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, username, newPassword }) });
+  const d = await r.json();
+  amsg(d.message, d.success?'ok':'err');
+  if (d.success) document.getElementById('cpPass').value='';
+}
+
+async function createTheme() {
+  const code = document.getElementById('tCode').value.trim();
+  const name = document.getElementById('tName').value.trim();
+  const color = document.getElementById('tColor').value;
+  if (!code || !name) return amsg('请填写主题编码和名称', 'err');
+  const r = await fetch('/api/console/theme/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, code, name, color }) });
+  const d = await r.json();
+  amsg(d.message, d.success?'ok':'err');
+  if (d.success) { document.getElementById('tCode').value=''; document.getElementById('tName').value=''; loadThemes(); }
+}
+
+async function loadThemes() {
+  const r = await fetch('/api/console/themes', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN }) });
+  const d = await r.json();
+  if (!d.success) return amsg(d.message, 'err');
+  let html = '<table><tr><th>编码</th><th>名称</th><th>颜色</th><th>创建者</th><th>报名</th><th>签到</th></tr>';
+  d.themes.forEach(t => html += `<tr><td>${t.code}</td><td>${t.name}</td><td><span style="display:inline-block;width:14px;height:14px;background:${t.color};border-radius:3px;vertical-align:middle;"></span></td><td>${t.owner}</td><td>${t.attendees}</td><td>${t.checkins}</td></tr>`);
+  html += '</table>';
+  if (!d.themes.length) html = '<p style="color:#6b7280;">暂无主题，请在上方创建。</p>';
+  document.getElementById('themeList').innerHTML = html;
+}
+
+async function loadAll() {
+  const r = await fetch('/api/console/data/all', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN }) });
+  const d = await r.json();
+  if (!d.success) return amsg(d.message, 'err');
+  let html = '';
+  d.themes.forEach(t => {
+    html += `<h3 style="margin:14px 0 6px;color:var(--theme);">${t.name}（${t.code}）</h3>`;
+    html += `<p style="font-size:12px;color:#6b7280;">报名 ${t.attendees.length} 人，签到 ${t.checkins.length} 人</p>`;
+    html += '<table><tr><th>姓名</th><th>电话</th><th>单位</th><th>来源</th><th>状态</th></tr>';
+    const all = [];
+    t.attendees.forEach(a => { const ck = t.checkins.find(c=>c.phone===a.phone); all.push([a.name,a.phone,a.unit,'名单',ck?'已签到':'未签到']); });
+    t.signups.forEach(s => all.push([s.name,s.phone,s.unit,'新报名',s.checkinTime?'已签到':'未签到']));
+    all.forEach(x => html += `<tr><td>${x[0]}</td><td>${x[1]}</td><td>${x[2]}</td><td>${x[3]}</td><td>${x[4]}</td></tr>`);
+    html += '</table>';
+  });
+  if (!d.themes.length) html = '<p style="color:#6b7280;">暂无主题数据。</p>';
+  document.getElementById('allBox').innerHTML = html;
+}
+
+async function exportAll() {
+  const r = await fetch('/api/console/data/all', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN }) });
+  const d = await r.json();
+  if (!d.success) return amsg(d.message, 'err');
+  const rows = [['主题','姓名','电话','单位','来源','状态']];
+  d.themes.forEach(t => {
+    const all = [];
+    t.attendees.forEach(a => { const ck = t.checkins.find(c=>c.phone===a.phone); all.push([a.name,a.phone,a.unit,'名单',ck?'已签到':'未签到']); });
+    t.signups.forEach(s => all.push([s.name,s.phone,s.unit,'新报名',s.checkinTime?'已签到':'未签到']));
+    all.forEach(x => rows.push([t.name, ...x]));
+  });
+  const csv = '\uFEFF' + rows.map(r=>r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '全部签到数据.csv';
+  a.click();
+  amsg('已导出全部数据', 'ok');
+}
+</script>
+</body>
+</html>
