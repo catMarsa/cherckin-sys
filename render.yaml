@@ -1,11 +1,10 @@
 # Render.com 一键部署配置
-# 本应用位于 checkin-multitenant 子文件夹，rootDir 已指向上去。
+# 本应用直接位于仓库根目录（server.js / public/ 在根），无需 rootDir。
 # 在 Render 选择 New → Blueprint 导入本文件即可，自动使用正确的构建/启动命令。
 services:
   - type: web
     name: checkin-system
     runtime: node
-    rootDir: checkin-multitenant
     plan: free
     branch: main
     buildCommand: npm install
