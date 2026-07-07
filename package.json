@@ -1,0 +1,14 @@
+{
+  "name": "checkin-system",
+  "version": "1.0.0",
+  "description": "签到系统 - 全栈版，支持多设备数据共享",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5"
+  }
+}

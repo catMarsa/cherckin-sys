@@ -1,0 +1,41 @@
+{
+  "attendees": [
+    {
+      "id": "mra76s4tri1b",
+      "name": "����",
+      "phone": "13800138000",
+      "unit": "������"
+    },
+    {
+      "id": "mra76s4tyaiw",
+      "name": "����",
+      "phone": "13900139000",
+      "unit": "�г���"
+    },
+    {
+      "id": "mra76s4td5a1",
+      "name": "����",
+      "phone": "13700137000",
+      "unit": "�з�����"
+    }
+  ],
+  "checkins": [
+    {
+      "id": "mra76w3yf4ly",
+      "name": "����",
+      "phone": "13800138000",
+      "unit": "������",
+      "checkinTime": 1783401473806
+    }
+  ],
+  "signups": [
+    {
+      "id": "mraa5o9u8jgb",
+      "name": "����",
+      "phone": "13600136000",
+      "unit": "��Ʒ��",
+      "signupTime": 1783406455842,
+      "checkinTime": 1783406455842
+    }
+  ]
+}
