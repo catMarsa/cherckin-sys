@@ -1,0 +1,17 @@
+{
+  "name": "checkin-multitenant",
+  "version": "2.0.0",
+  "description": "多主题签到系统 - 支持主题编码、管理员权限、开发者总后台",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
