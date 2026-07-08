@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台</title>
+<style>
+  :root { --theme: #4F46E5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f4f5f7; color: #1f2937; padding: 16px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 14px; box-shadow: 0 4px 18px rgba(0,0,0,.06); padding: 22px; margin-bottom: 16px; }
+  h2 { font-size: 18px; margin-bottom: 14px; color: var(--theme); }
+  label { display: block; font-size: 13px; color: #6b7280; margin: 10px 0 5px; }
+  input, textarea, select { width: 100%; padding: 11px 13px; border: 1px solid #e5e7eb; border-radius: 9px; font-size: 14px; outline: none; }
+  input:focus, textarea:focus, select:focus { border-color: var(--theme); }
+  textarea { min-height: 80px; resize: vertical; font-family: monospace; }
+  button { padding: 11px 18px; border: none; border-radius: 9px; background: var(--theme); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; margin: 8px 8px 0 0; }
+  button.ghost { background: #f3f4f6; color: #374151; }
+  button.danger { background: #ef4444; }
+  button.sm { padding: 6px 12px; font-size: 13px; margin: 4px 4px 0 0; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 150px; }
+  .msg { font-size: 13px; padding: 9px 12px; border-radius: 8px; margin-top: 10px; display: none; }
+  .msg.ok { background: #ecfdf5; color: #047857; display: block; }
+  .msg.err { background: #fef2f2; color: #b91c1c; display: block; }
+  .stat { display: flex; gap: 12px; margin-bottom: 10px; }
+  .stat .box { flex: 1; background: #f9fafb; border-radius: 10px; padding: 14px; text-align: center; }
+  .stat .num { font-size: 24px; font-weight: 700; color: var(--theme); }
+  .stat .lbl { font-size: 12px; color: #6b7280; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  th, td { border: 1px solid #eef0f3; padding: 8px; text-align: left; vertical-align: top; }
+  th { background: #f9fafb; color: #374151; }
+  .hidden { display: none !important; }
+  a.back { color: var(--theme); text-decoration: none; font-size: 13px; }
+  .toggle { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #f9fafb; border-radius: 9px; margin-top: 10px; }
+  .toggle input { width: auto; }
+  .toggle .desc { font-size: 12px; color: #6b7280; }
+  .q-row { border: 1px solid #eef0f3; border-radius: 10px; padding: 12px; margin-top: 10px; background: #fcfcfd; }
+  .q-row .q-head { display: flex; gap: 8px; align-items: center; }
+  .q-row .q-head select { width: 120px; flex: none; }
+  .q-row .del { margin-left: auto; }
+  .opt-input { font-size: 12px; color: #6b7280; }
+  .conf-card { border: 1px solid #eef0f3; border-radius: 12px; padding: 14px; margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+  .conf-card .dot { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+  .conf-card .info { flex: 1; }
+  .conf-card .info .nm { font-weight: 600; }
+  .conf-card .info .cd { font-size: 12px; color: #6b7280; }
+  .share { font-size: 12px; color: #6b7280; background: #f9fafb; border-radius: 8px; padding: 8px 10px; margin-top: 8px; word-break: break-all; }
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+  .modal-mask.show { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 22px; width: 100%; max-width: 540px; max-height: 90vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,.2); }
+  .modal h3 { color: var(--theme); margin-bottom: 10px; font-size: 17px; }
+  .fmt-example { background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 9px; padding: 12px; font-family: monospace; font-size: 13px; color: #374151; white-space: pre; margin: 10px 0; line-height: 1.6; }
+  .fmt-note { font-size: 12px; color: #6b7280; }
+  /* 签到二维码 */
+  .qr-wrap { text-align: center; margin-top: 10px; }
+  .qr-img { max-width: 220px; max-height: 220px; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+  .qr-actions { margin-top: 10px; display: flex; gap: 8px; justify-content: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 登录 -->
+  <div id="loginCard" class="card">
+    <h2>管理后台登录</h2>
+    <label>管理员账号</label>
+    <input id="username" type="text" placeholder="管理员用户名">
+    <label>密码</label>
+    <input id="password" type="password" placeholder="密码">
+    <button onclick="login()">登录</button>
+    <div id="loginMsg" class="msg"></div>
+    <p style="margin-top:14px;font-size:12px;"><a class="back" href="index.html">← 返回签到页</a> · <a class="back" href="console.html">开发者控制台</a></p>
+  </div>
+
+  <!-- 仪表盘：我的会议 -->
+  <div id="dash" class="card hidden">
+    <div class="row" style="align-items:center;">
+      <h2 style="margin:0;flex:1;">我的会议</h2>
+      <button class="ghost" onclick="logout()">退出</button>
+    </div>
+    <div id="themeCards"></div>
+
+    <h2 style="margin-top:24px;">创建新会议（主题）</h2>
+    <div class="row">
+      <div><label>主题编码（唯一，参与者链接用）</label><input id="ncCode" placeholder="如 会议2026"></div>
+      <div><label>会议名称</label><input id="ncName" placeholder="如 2026年度大会"></div>
+      <div><label>主题色</label><input id="ncColor" value="#4F46E5" type="color"></div>
+    </div>
+    <button onclick="createTheme()">+ 创建会议</button>
+    <div id="dashMsg" class="msg"></div>
+  </div>
+
+  <!-- 会议管理 -->
+  <div id="manage" class="card hidden">
+    <a class="back" href="javascript:void(0)" onclick="backDash()">← 返回我的会议</a>
+    <h2 id="mTitle" style="margin-top:8px;">会议管理</h2>
+    <div class="share" id="mShare"></div>
+    <div style="margin-top:8px;">
+      <button class="sm" onclick="showQrCode()">📱 生成签到码</button>
+    </div>
+    <div class="stat">
+      <div class="box"><div class="num" id="sAtt">0</div><div class="lbl">报名名单</div></div>
+      <div class="box"><div class="num" id="sChk">0</div><div class="lbl">已签到</div></div>
+      <div class="box"><div class="num" id="sNew">0</div><div class="lbl">新报名</div></div>
+    </div>
+
+    <!-- 报名设置 -->
+    <h2 style="margin-top:18px;">报名设置（题目与名单校验）</h2>
+    <div class="toggle">
+      <input type="checkbox" id="validateRoster">
+      <div><div style="font-size:14px;font-weight:600;">启用报名名单校验</div><div class="desc">开启后，仅名单内人员可签到；非名单人员按下方开关处理</div></div>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="allowWalkin">
+      <div><div style="font-size:14px;font-weight:600;">允许非名单人员自主报名</div><div class="desc">关闭后，不在名单中的手机号无法报名/签到（严格模式）</div></div>
+    </div>
+    <h2 style="margin-top:18px;">报名题目</h2>
+    <p style="font-size:12px;color:#6b7280;">参与者报名/签到时需作答。支持填空与选择题，可设必填。</p>
+    <div id="questionsList"></div>
+    <button class="sm" onclick="addQuestion()">+ 添加题目</button>
+    <button onclick="saveConfig()">💾 保存报名设置</button>
+
+    <h2 style="margin-top:24px;">导入名单</h2>
+    <p style="font-size:12px;color:#6b7280;">上传报名名单用于名单校验与自动带出姓名单位。支持粘贴文本或从示例 CSV 准备。</p>
+    <button onclick="openImportModal()">导入名单</button>
+
+    <h2 style="margin-top:20px;">手动签到</h2>
+    <div class="row">
+      <div><label>手机号</label><input id="mPhone" placeholder="手机号"></div>
+      <div><label>姓名</label><input id="mName" placeholder="姓名"></div>
+      <div><label>单位</label><input id="mUnit" placeholder="单位"></div>
+    </div>
+    <button onclick="manualCheckin()">补录签到</button>
+
+    <h2 style="margin-top:20px;">数据查看与导出</h2>
+    <button onclick="exportCsv()">导出 CSV（含题目答案）</button>
+    <button class="danger" onclick="deleteTheme()">删除本会议</button>
+    <div id="tableBox"></div>
+    <div id="panelMsg" class="msg"></div>
+  </div>
+
+  <!-- 导入名单模态框 -->
+  <div id="importModal" class="modal-mask" onclick="if(event.target===this)closeImportModal()">
+    <div class="modal">
+      <h3>导入报名名单</h3>
+      <p class="fmt-note">每行一条记录，使用英文逗号分隔，格式如下（第一行为表头，导入时自动跳过）：</p>
+      <div class="fmt-example">姓名,电话,单位
+张三,13800138000,技术部
+李四,13900139000,市场部
+王五,13700137000,行政部</div>
+      <p class="fmt-note">⚠️ 电话需为 11 位手机号，将用于签到校验与自动带出姓名单位；列顺序请保持「姓名,电话,单位」。</p>
+      <button class="ghost" onclick="downloadSample()">⬇ 下载示例 CSV</button>
+
+      <h3 style="margin-top:18px;">粘贴名单</h3>
+      <textarea id="importText" placeholder="张三,13800138000,技术部&#10;李四,13900139000,市场部"></textarea>
+      <div style="margin-top:12px;">
+        <button onclick="importList()">确认导入</button>
+        <button class="ghost" onclick="closeImportModal()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 签到二维码模态框 -->
+  <div id="qrModal" class="modal-mask" onclick="if(event.target===this)closeQrModal()">
+    <div class="modal" style="max-width:400px;text-align:center;">
+      <h3 id="qrTitle">会议签到码</h3>
+      <p class="fmt-note" id="qrCodeLabel" style="font-size:13px;"></p>
+      <div class="qr-wrap">
+        <img id="qrImg" class="qr-img" alt="签到二维码">
+      </div>
+      <p class="fmt-note" id="qrUrlDisplay" style="word-break:break-all;font-size:12px;margin-top:10px;"></p>
+      <div class="qr-actions">
+        <button onclick="downloadQr()">⬇ 下载二维码图片</button>
+        <button class="ghost" onclick="copyQrLink()">📋 复制链接</button>
+        <button class="ghost" onclick="closeQrModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let TOKEN = '';
+let CURRENT_CODE = '';
+let CURRENT_QUESTIONS = [];
+let BASE = location.origin;
+
+function pmsg(id, text, type) { const m = document.getElementById(id); m.textContent = text; m.className = 'msg ' + (type || ''); }
+
+async function login() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  if (!username || !password) { pmsg('loginMsg', '请填写账号和密码', 'err'); return; }
+  try {
+    const r = await fetch('/api/admin/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username, password }) });
+    const d = await r.json();
+    if (!d.success) { pmsg('loginMsg', d.message, 'err'); return; }
+    TOKEN = d.token;
+    document.getElementById('loginCard').classList.add('hidden');
+    document.getElementById('dash').classList.remove('hidden');
+    loadThemes();
+  } catch (e) { pmsg('loginMsg', '网络错误', 'err'); }
+}
+
+function logout() { TOKEN=''; location.reload(); }
+
+// ---------- 仪表盘 ----------
+async function loadThemes() {
+  try {
+    const r = await fetch('/api/admin/themes', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN }) });
+    const d = await r.json();
+    if (!d.success) { pmsg('dashMsg', d.message, 'err'); return; }
+    const box = document.getElementById('themeCards');
+    if (!d.themes.length) {
+      box.innerHTML = '<p style="color:#6b7280;font-size:13px;">还没有会议，请在下方创建。</p>';
+      return;
+    }
+    box.innerHTML = d.themes.map(t => `
+      <div class="conf-card">
+        <span class="dot" style="background:${t.color}"></span>
+        <div class="info">
+          <div class="nm">${t.name}</div>
+          <div class="cd">编码：${t.code} · 报名 ${t.attendees} · 签到 ${t.checkins}${t.owner?(' · 创建者 '+t.owner):''}</div>
+        </div>
+        <button class="sm" onclick="openManage('${t.code}')">管理</button>
+        <button class="sm ghost" onclick="exportOne('${t.code}')">导出</button>
+        <button class="sm danger" onclick="delTheme('${t.code}')">删除</button>
+      </div>`).join('');
+  } catch (e) { pmsg('dashMsg', '网络错误', 'err'); }
+}
+
+async function createTheme() {
+  const code = document.getElementById('ncCode').value.trim();
+  const name = document.getElementById('ncName').value.trim();
+  const color = document.getElementById('ncColor').value;
+  if (!code || !name) { pmsg('dashMsg', '请填写主题编码和会议名称', 'err'); return; }
+  try {
+    const r = await fetch('/api/admin/theme/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, code, name, color }) });
+    const d = await r.json();
+    if (d.success) { document.getElementById('ncCode').value=''; document.getElementById('ncName').value=''; pmsg('dashMsg', '✅ '+d.message, 'ok'); loadThemes(); }
+    else pmsg('dashMsg', d.message, 'err');
+  } catch (e) { pmsg('dashMsg', '网络错误', 'err'); }
+}
+
+async function delTheme(code) {
+  if (!confirm('确定删除会议「'+code+'」及其全部数据？')) return;
+  const r = await fetch('/api/admin/theme/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, code }) });
+  const d = await r.json();
+  pmsg('dashMsg', d.message, d.success?'ok':'err');
+  if (d.success) loadThemes();
+}
+
+// ---------- 会议管理 ----------
+function openManage(code) {
+  CURRENT_CODE = code;
+  document.getElementById('dash').classList.add('hidden');
+  document.getElementById('manage').classList.remove('hidden');
+  document.getElementById('mShare').textContent = '参与者签到链接：' + BASE + '/?code=' + code;
+  refresh();
+  loadConfig();
+}
+function backDash() {
+  document.getElementById('manage').classList.add('hidden');
+  document.getElementById('dash').classList.remove('hidden');
+  loadThemes();
+}
+
+// ---------- 报名设置 ----------
+function addQuestion(q) {
+  q = q || { type: 'text', label: '', required: false, options: [] };
+  const list = document.getElementById('questionsList');
+  const idx = CURRENT_QUESTIONS.length;
+  CURRENT_QUESTIONS.push(q);
+  const div = document.createElement('div');
+  div.className = 'q-row';
+  div.dataset.idx = idx;
+  div.innerHTML = `
+    <div class="q-head">
+      <select onchange="onTypeChange(this)">
+        <option value="text" ${q.type==='text'?'selected':''}>填空</option>
+        <option value="choice" ${q.type==='choice'?'selected':''}>选择题</option>
+      </select>
+      <input class="q-label" placeholder="题目内容，如 所在部门" value="${q.label||''}">
+      <label style="margin:0;display:flex;align-items:center;gap:4px;font-size:13px;color:#374151;">
+        <input type="checkbox" class="q-req" ${q.required?'checked':''} style="width:auto;"> 必填
+      </label>
+      <button class="sm danger del" onclick="removeQuestion(this)">删除</button>
+    </div>
+    <div class="q-opt-wrap" style="margin-top:8px;${q.type==='choice'?'':'display:none;'}">
+      <label class="opt-input">选项（每行一个，或用英文逗号分隔）</label>
+      <textarea class="q-opt" style="min-height:60px;font-size:13px;">${Array.isArray(q.options)?q.options.join('\n'):''}</textarea>
+    </div>`;
+  list.appendChild(div);
+}
+function onTypeChange(sel) { sel.closest('.q-row').querySelector('.q-opt-wrap').style.display = sel.value === 'choice' ? '' : 'none'; }
+function removeQuestion(btn) {
+  const row = btn.closest('.q-row');
+  CURRENT_QUESTIONS.splice(Number(row.dataset.idx), 1);
+  row.remove();
+  document.querySelectorAll('#questionsList .q-row').forEach((el, i) => { el.dataset.idx = i; });
+}
+function collectQuestions() {
+  const arr = [];
+  document.querySelectorAll('#questionsList .q-row').forEach((row, i) => {
+    const type = row.querySelector('select').value;
+    const label = row.querySelector('.q-label').value.trim();
+    if (!label) return;
+    const required = row.querySelector('.q-req').checked;
+    let options = [];
+    if (type === 'choice') options = row.querySelector('.q-opt').value.split(/\n|,|，/).map(s => s.trim()).filter(Boolean);
+    arr.push({ id: (CURRENT_QUESTIONS[i] && CURRENT_QUESTIONS[i].id) || '', type, label, required, options });
+  });
+  return arr;
+}
+async function loadConfig() {
+  try {
+    const r = await fetch('/api/admin/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, code: CURRENT_CODE }) });
+    const d = await r.json();
+    if (!d.success) return;
+    const settings = d.data.settings || {};
+    document.getElementById('validateRoster').checked = !!settings.validateRoster;
+    document.getElementById('allowWalkin').checked = !(settings.allowWalkin === false);
+    CURRENT_QUESTIONS = d.data.questions || [];
+    document.getElementById('questionsList').innerHTML = '';
+    CURRENT_QUESTIONS.forEach(q => addQuestion(q));
+  } catch (e) {}
+}
+async function saveConfig() {
+  const questions = collectQuestions();
+  const settings = {
+    validateRoster: document.getElementById('validateRoster').checked,
+    allowWalkin: document.getElementById('allowWalkin').checked
+  };
+  try {
+    const r = await fetch('/api/admin/theme/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, code: CURRENT_CODE, questions, settings }) });
+    const d = await r.json();
+    if (d.success) { pmsg('panelMsg', '✅ ' + d.message, 'ok'); CURRENT_QUESTIONS = d.theme.questions || []; }
+    else pmsg('panelMsg', d.message, 'err');
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+
+// ---------- 数据 ----------
+async function refresh() {
+  try {
+    const r = await fetch('/api/admin/data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, code: CURRENT_CODE }) });
+    const d = await r.json();
+    if (!d.success) { pmsg('panelMsg', d.message, 'err'); return; }
+    const { attendees, checkins, signups, questions } = d.data;
+    document.getElementById('mTitle').textContent = '会议管理：' + d.data.name;
+    document.getElementById('sAtt').textContent = attendees.length;
+    document.getElementById('sChk').textContent = checkins.length;
+    document.getElementById('sNew').textContent = signups.length;
+    const qLabels = (questions || []).map(q => q.label);
+    let html = '<table><tr><th>姓名</th><th>电话</th><th>单位</th><th>来源</th><th>状态</th><th>签到时间</th>' + (qLabels.length ? '<th>题目答案</th>' : '') + '</tr>';
+    const all = [];
+    attendees.forEach(a => { const ck = checkins.find(c=>c.phone===a.phone); all.push({ n:a.name, p:a.phone, u:a.unit, src:'名单', st: ck?'已签到':'未签到', t: ck?new Date(ck.checkinTime).toLocaleString():'', ans: ck?ck.answers:null }); });
+    signups.forEach(s => { all.push({ n:s.name, p:s.phone, u:s.unit, src:'新报名', st: s.checkinTime?'已签到':'未签到', t: s.checkinTime?new Date(s.checkinTime).toLocaleString():'', ans: s.answers }); });
+    all.forEach(x => {
+      let ansHtml = '';
+      if (qLabels.length && x.ans) ansHtml = (questions||[]).map(q => `<div>${q.label}: ${(x.ans[q.id]||'—')}</div>`).join('');
+      html += `<tr><td>${x.n}</td><td>${x.p}</td><td>${x.u}</td><td>${x.src}</td><td>${x.st}</td><td>${x.t}</td>${qLabels.length?`<td>${ansHtml}</td>`:''}</tr>`;
+    });
+    html += '</table>';
+    if (!all.length) html = '<p style="color:#6b7280;font-size:13px;">暂无数据</p>';
+    document.getElementById('tableBox').innerHTML = html;
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+
+async function importList() {
+  const lines = document.getElementById('importText').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if (!lines.length) { pmsg('panelMsg', '请先粘贴或填入名单', 'err'); return; }
+  try {
+    const r = await fetch('/api/admin/import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, code: CURRENT_CODE, lines }) });
+    const d = await r.json();
+    if (d.success) { pmsg('panelMsg', `导入完成：新增 ${d.added}，跳过 ${d.skipped}` + (d.errors.length? '；错误 '+d.errors.join('；'):''), 'ok'); document.getElementById('importText').value=''; closeImportModal(); }
+    else pmsg('panelMsg', d.message, 'err');
+    refresh();
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+
+// 导入名单模态框
+function openImportModal() { document.getElementById('importModal').classList.add('show'); }
+function closeImportModal() { document.getElementById('importModal').classList.remove('show'); }
+// 下载示例 CSV（含示例数据与表头，带 BOM 以便 Excel 正确显示中文）
+function downloadSample() {
+  const sample = '姓名,电话,单位\n张三,13800138000,技术部\n李四,13900139000,市场部\n王五,13700137000,行政部\n赵六,13600136000,财务部';
+  const csv = '﻿' + sample;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '报名名单示例.csv';
+  a.click();
+}
+
+async function manualCheckin() {
+  const phone = document.getElementById('mPhone').value.trim();
+  const name = document.getElementById('mName').value.trim();
+  const unit = document.getElementById('mUnit').value.trim();
+  if (!phone || !name) { pmsg('panelMsg', '请填写手机号和姓名', 'err'); return; }
+  try {
+    const r = await fetch('/api/admin/checkin', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, code: CURRENT_CODE, phone, name, unit }) });
+    const d = await r.json();
+    pmsg('panelMsg', d.message, d.success?'ok':'err');
+    refresh();
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+
+async function exportCsv() { await exportOne(CURRENT_CODE); }
+async function exportOne(code) {
+  try {
+    const r = await fetch('/api/admin/export', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, code }) });
+    const d = await r.json();
+    if (!d.success) { pmsg('panelMsg', d.message, 'err'); return; }
+    const blob = new Blob([d.csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '签到数据_' + code + '.csv';
+    a.click();
+    if (code === CURRENT_CODE) pmsg('panelMsg', '已导出 ' + d.count + ' 条', 'ok');
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+
+async function deleteTheme() {
+  if (!confirm('确定删除本会议及其全部数据？此操作不可恢复')) return;
+  try {
+    const r = await fetch('/api/admin/theme/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: TOKEN, code: CURRENT_CODE }) });
+    const d = await r.json();
+    if (d.success) { backDash(); }
+    else pmsg('panelMsg', d.message, 'err');
+  } catch (e) { pmsg('panelMsg', '网络错误', 'err'); }
+}
+
+// ---------- 签到二维码 ----------
+function getQrUrl(code) { return BASE + '/?code=' + encodeURIComponent(code); }
+function showQrCode() {
+  if (!CURRENT_CODE) return;
+  const url = getQrUrl(CURRENT_CODE);
+  document.getElementById('qrTitle').textContent = '会议签到码';
+  // 获取会议名称
+  const titleEl = document.getElementById('mTitle');
+  const name = titleEl ? titleEl.textContent.replace('会议管理：', '') : CURRENT_CODE;
+  document.getElementById('qrCodeLabel').textContent = name + '（' + CURRENT_CODE + '）';
+  document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url) + '&color=' + encodeURIComponent((document.querySelector('.dot')||{}).style.background||'#4F46E5').replace('#','');
+  document.getElementById('qrUrlDisplay').textContent = url;
+  document.getElementById('qrModal').classList.add('show');
+}
+function closeQrModal() { document.getElementById('qrModal').classList.remove('show'); }
+async function downloadQrCode() {
+  // 已通过 showQrCode 设置了 img src，直接下载图片
+  const img = document.getElementById('qrImg');
+  if (!img.src) return;
+  try {
+    const resp = await fetch(img.src);
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '签到码_' + CURRENT_CODE + '.png';
+    a.click();
+  } catch(e) {
+    // fallback: 新窗口打开让用户右键保存
+    window.open(img.src, '_blank');
+  }
+}
+// downloadQr 是用户按钮调用的
+function downloadQr() { downloadQrCode(); }
+function copyQrLink() {
+  const url = getQrUrl(CURRENT_CODE);
+  navigator.clipboard.writeText(url).then(() => {
+    alert('链接已复制：' + url);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    alert('链接已复制：' + url);
+  });
+}
+</script>
+</body>
+</html>
